@@ -1,0 +1,3 @@
+"""
+Situation Monitor test suite.
+"""

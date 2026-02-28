@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # Main application
+  situation-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: situation-monitor
+    restart: unless-stopped
+    
+    environment:
+      - SM_ENVIRONMENT=production
+      - SM_LOG_LEVEL=INFO
+      - SM_LOG_FORMAT=json
+      - SM_STORAGE_BACKEND=sqlite
+      - SM_DATABASE_URL=sqlite:///data/situation_monitor.db
+      - SM_DEFAULT_INTERVAL=300
+      - SM_MAX_CONCURRENT_SOURCES=10
+      - SM_RATE_LIMIT_REQUESTS=60
+      - SM_MAX_RETRIES=3
+      - SM_REQUEST_TIMEOUT=30
+      - SM_NOTIFICATION_COOLDOWN_SECONDS=300
+      - PYTHONUNBUFFERED=1
+    
+    volumes:
+      # Persistent data storage
+      - situation-monitor-data:/app/data
+      # Logs directory
+      - situation-monitor-logs:/app/logs
+      # Config files (read-only)
+      - ../config:/app/config:ro
+      # Optional: mount custom sources
+      - ./custom_sources:/app/custom_sources:ro
+    
+    ports:
+      - "8501:8501"  # Dashboard
+    
+    networks:
+      - situation-monitor-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import situation_monitor; print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Graceful shutdown
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
+
+  # Optional: PostgreSQL backend (uncomment to use)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: situation-monitor-db
+  #   restart: unless-stopped
+  #   environment:
+  #     - POSTGRES_USER=smuser
+  #     - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+  #     - POSTGRES_DB=situation_monitor
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - situation-monitor-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U smuser"]
+ #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # Optional: Redis for caching (uncomment to use)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: situation-monitor-cache
+  #   restart: unless-stopped
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - situation-monitor-network
+  #   command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+
+  # Log rotation sidecar
+  logrotate:
+    image: alpine:latest
+    container_name: situation-monitor-logrotate
+    restart: unless-stopped
+    volumes:
+      - situation-monitor-logs:/logs
+      - ./logrotate.conf:/etc/logrotate.conf:ro
+    command: |
+      sh -c "
+        echo '0 0 * * * /usr/sbin/logrotate /etc/logrotate.conf' | crontab - &&
+        crond -f
+      "
+    depends_on:
+      - situation-monitor
+    networks:
+      - situation-monitor-network
+
+volumes:
+  situation-monitor-data:
+    driver: local
+  situation-monitor-logs:
+    driver: local
+  # postgres-data:
+  #   driver: local
+  # redis-data:
+  #   driver: local
+
+networks:
+  situation-monitor-network:
+    driver: bridge

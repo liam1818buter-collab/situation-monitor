@@ -1,0 +1,133 @@
+# Situation Monitor Alert Configuration
+# Copy this file to alerts.yaml and customize for your environment
+
+# Global alert settings
+rate_limit_seconds: 300  # 5 minutes between duplicate alerts
+enable_deduplication: true
+
+# Notification channels
+channels:
+  # Discord webhook channel
+  discord:
+    enabled: true
+    webhook_url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+    username: "Situation Monitor"
+    min_severity: info
+    rate_limit_seconds: 300
+    quiet_hours_start: 22  # 10 PM
+    quiet_hours_end: 8     # 8 AM
+    dashboard_url: "https://dashboard.example.com"
+
+  # Slack webhook channel
+  slack:
+    enabled: true
+    webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/TOKEN"
+    username: "Situation Monitor"
+    icon_emoji: ":bell:"
+    min_severity: warning
+    rate_limit_seconds: 300
+    quiet_hours_start: 22
+    quiet_hours_end: 8
+
+  # Email channel
+  email:
+    enabled: false  # Set to true to enable
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_user: "${SMTP_USER}"  # Use env var
+    smtp_password: "${SMTP_PASSWORD}"  # Use env var
+    from_address: "alerts@situation-monitor.local"
+    to_addresses:
+      - "admin@example.com"
+      - "ops@example.com"
+    min_severity: warning
+    rate_limit_seconds: 600
+    use_tls: true
+
+  # Generic JSON webhook
+  webhook:
+    enabled: false
+    url: "https://api.example.com/webhooks/alerts"
+    headers:
+      Content-Type: "application/json"
+    auth_token: "${WEBHOOK_AUTH_TOKEN}"  # Use env var
+    auth_header: "Authorization"
+    min_severity: info
+    rate_limit_seconds: 60
+
+  # Local logging channel
+  local:
+    enabled: true
+    log_file: "./data/alerts.jsonl"
+    enable_desktop_notifications: true
+    min_severity: info
+
+# Alert processing rules
+rules:
+  # High severity immediate alerts
+  - rule_id: critical-alerts
+    name: "Critical Alerts"
+    description: "Immediately notify on critical issues"
+    enabled: true
+    min_severity: critical
+    max_severity: critical
+    aggregation_mode: immediate
+    cooldown_seconds: 60  # 1 minute between criticals
+
+  # Error monitoring with throttling
+  - rule_id: error-throttle
+    name: "Error Throttling"
+    description: "Throttle error alerts to prevent spam"
+    enabled: true
+    min_severity: error
+    max_severity: error
+    aggregation_mode: throttle
+    cooldown_seconds: 300  # 5 minutes
+    max_alerts_per_hour: 10
+
+  # Warning digest
+  - rule_id: warning-digest
+    name: "Warning Digest"
+    description: "Bundle warnings into hourly digests"
+    enabled: true
+    min_severity: warning
+    max_severity: warning
+    aggregation_mode: digest
+    digest_interval_minutes: 60
+    keywords:
+      - "unusual"
+      - "anomaly"
+      - "spike"
+
+  # Source-specific rule for important feeds
+  - rule_id: important-sources
+    name: "Important Sources"
+    description: "Monitor specific high-priority sources"
+    enabled: true
+    min_severity: info
+    include_sources:
+      - "security-feed"
+      - "status-page"
+    keywords:
+      - "outage"
+      - "incident"
+      - "breach"
+      - "attack"
+    regex_patterns:
+      - "CVE-\d{4}-\d+"
+      - "security (advisory|notice|alert)"
+    aggregation_mode: immediate
+    cooldown_seconds: 300
+
+  # Info digest for everything else
+  - rule_id: info-digest
+    name: "Info Digest"
+    description: "Daily digest of informational alerts"
+    enabled: true
+    min_severity: info
+    max_severity: info
+    aggregation_mode: digest
+    digest_interval_minutes: 1440  # 24 hours
+    quiet_hours_start: 20  # 8 PM
+    quiet_hours_end: 8     # 8 AM
+    quiet_hours_severity_exemption: critical

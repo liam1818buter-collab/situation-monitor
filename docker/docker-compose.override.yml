@@ -1,0 +1,49 @@
+# Development override for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+
+version: '3.8'
+
+services:
+  situation-monitor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: builder  # Use builder stage for dev
+    
+    environment:
+      - SM_ENVIRONMENT=development
+      - SM_DEBUG=true
+      - SM_LOG_LEVEL=DEBUG
+      - SM_LOG_FORMAT=text
+      - SM_STORAGE_BACKEND=sqlite
+    
+    volumes:
+      # Mount source code for hot reload
+      - ../situation_monitor:/app/situation_monitor:rw
+      - ../config:/app/config:rw
+      - ../tests:/app/tests:rw
+      # Persist data
+      - situation-monitor-data:/app/data
+      - situation-monitor-logs:/app/logs
+    
+    # Override command for development
+    command: |
+      sh -c "
+        pip install -e . 2>/dev/null || true &&
+        python -m pytest tests/ -v --tb=short ||
+        python -m situation_monitor.dashboard.app
+      "
+    
+    # Remove resource limits in dev
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+    
+    stdin_open: true
+    tty: true
+
+volumes:
+  situation-monitor-data:
+  situation-monitor-logs:

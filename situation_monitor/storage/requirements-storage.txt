@@ -1,0 +1,16 @@
+# Storage module for Situation Monitor
+# Additional dependencies for storage layer
+
+# Vector storage and embeddings
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+
+# SQLite extensions
+sqlite-vec>=0.1.0; python_version >= "3.9"
+
+# Async PostgreSQL (optional)
+asyncpg>=0.28.0; extra == "postgres"
+
+# Data compression
+zstandard>=0.21.0
